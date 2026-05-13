@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { AppNavbar } from "@/components/layout/AppNavbar";
+import { apiUrl } from "@/lib/api";
 
 type UserType = "driver" | "admin" | "parking_marshal";
 
@@ -39,7 +40,7 @@ function LoginPage() {
     params.append("user_type", userType);
 
     try {
-      const response = await fetch("http://localhost:8001/auth/token", {
+      const response = await fetch(apiUrl("/auth/token"), {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),

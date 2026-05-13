@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/brand/Logo";
+import { apiUrl } from "@/lib/api";
 
 const publicNavLinks = [
   { to: "/", label: "home" },
@@ -26,7 +27,7 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
     setIsLoggedIn(!!token);
     if (!token) return;
 
-    fetch("http://localhost:8001/auth/me", {
+    fetch(apiUrl("/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((response) => (response.ok ? response.json() : null))

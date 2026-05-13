@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageShell } from "@/components/layout/PageShell";
+import { apiUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/ai-support")({
   head: () => ({ meta: [{ title: "ai support - stadie-park" }] }),
@@ -37,7 +38,7 @@ function AiSupportPage() {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8001/ai/chat", {
+      const response = await fetch(apiUrl("/ai/chat"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

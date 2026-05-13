@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { MessageCircle, Send, X } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 type Message = {
   role: "user" | "assistant";
@@ -42,7 +43,7 @@ export function FloatingChatbot() {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8001/ai/chat", {
+      const response = await fetch(apiUrl("/ai/chat"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

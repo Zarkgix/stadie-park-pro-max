@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { StatBlock } from "@/components/ui-ext/StatBlock";
+import { apiUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "operations dashboard - stadie-park" }] }),
@@ -209,7 +210,7 @@ function DashboardPage() {
 
     try {
       setError("");
-      const meResponse = await fetch("http://localhost:8001/auth/me", {
+      const meResponse = await fetch(apiUrl("/auth/me"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!meResponse.ok) {
@@ -221,20 +222,20 @@ function DashboardPage() {
       const user: User = await meResponse.json();
       setCurrentUser(user);
 
-      const myVehiclesResponse = await fetch("http://localhost:8001/auth/my-vehicles", {
+      const myVehiclesResponse = await fetch(apiUrl("/auth/my-vehicles"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (myVehiclesResponse.ok) setMyVehicles(await myVehiclesResponse.json());
 
       if (user.user_type === "admin" || user.user_type === "parking_marshal") {
-        const vehicleResponse = await fetch("http://localhost:8001/vehicles/", {
+        const vehicleResponse = await fetch(apiUrl("/vehicles/"), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (vehicleResponse.ok) setAllVehicles(await vehicleResponse.json());
       }
 
       if (user.user_type === "admin" || user.user_type === "parking_marshal") {
-        const usersResponse = await fetch("http://localhost:8001/auth/users", {
+        const usersResponse = await fetch(apiUrl("/auth/users"), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (usersResponse.ok) setAllUsers(await usersResponse.json());
@@ -257,7 +258,7 @@ function DashboardPage() {
   }
 
   async function approveUser(userId: number) {
-    await postAction(`http://localhost:8001/auth/users/${userId}/approve`, "Account approved.");
+    await postAction(apiUrl(`/auth/users/${userId}/approve`), "Account approved.");
   }
 
   async function createStaff(event: FormEvent<HTMLFormElement>) {
@@ -265,7 +266,7 @@ function DashboardPage() {
     if (!token) return;
     setError("");
     setMessage("");
-    const response = await fetch("http://localhost:8001/auth/users", {
+    const response = await fetch(apiUrl("/auth/users"), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ email: staffEmail, password: staffPassword, user_type: staffType }),
@@ -285,7 +286,7 @@ function DashboardPage() {
     if (!token) return;
     setError("");
     setMessage("");
-    const response = await fetch(`http://localhost:8001/auth/users/${userId}`, {
+    const response = await fetch(apiUrl(`/auth/users/${userId}`), {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(changes),
@@ -300,7 +301,7 @@ function DashboardPage() {
   }
 
   async function deactivateUser(userId: number) {
-    await postAction(`http://localhost:8001/auth/users/${userId}/deactivate`, "User account deactivated.");
+    await postAction(apiUrl(`/auth/users/${userId}/deactivate`), "User account deactivated.");
   }
 
   async function postAction(url: string, success: string) {
