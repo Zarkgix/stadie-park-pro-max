@@ -89,6 +89,34 @@
   --foreground: oklch(1 0 0);
 }
 
+.light {
+  --background: oklch(0.97 0.01 95);
+  --foreground: oklch(0.16 0.01 95);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0.01 95);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.01 95);
+  --primary: oklch(0.16 0.01 95);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.93 0.01 95);
+  --secondary-foreground: oklch(0.16 0.01 95);
+  --muted: oklch(0.92 0.01 95);
+  --muted-foreground: oklch(0.42 0.01 95);
+  --accent: oklch(0.9 0.02 190);
+  --accent-foreground: oklch(0.16 0.01 95);
+  --border: oklch(0.16 0.01 95 / 14%);
+  --input: oklch(0.16 0.01 95 / 14%);
+  --ring: oklch(0.16 0.01 95 / 28%);
+  --sidebar: oklch(0.98 0.01 95);
+  --sidebar-foreground: oklch(0.16 0.01 95);
+  --sidebar-primary: oklch(0.16 0.01 95);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.92 0.01 95);
+  --sidebar-accent-foreground: oklch(0.16 0.01 95);
+  --sidebar-border: oklch(0.16 0.01 95 / 12%);
+  --sidebar-ring: oklch(0.16 0.01 95 / 28%);
+}
+
 html, body, #root {
   height: 100%;
 }
@@ -105,6 +133,98 @@ html, body, #root {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+.light body {
+  background-color: #f7f6ef;
+  color: #171717;
+}
+
+.light .bg-black,
+.light .bg-neutral-950 {
+  background-color: #f7f6ef;
+}
+
+.light .bg-neutral-900,
+.light .bg-neutral-900\/90,
+.light .bg-neutral-950\/95 {
+  background-color: rgb(255 255 255 / 0.88);
+}
+
+.light .bg-neutral-800 {
+  background-color: rgb(244 244 238 / 0.95);
+}
+
+.light .bg-white,
+.light .hover\:bg-neutral-200:hover {
+  background-color: #171717;
+}
+
+.light .bg-white\/5,
+.light .bg-white\/10,
+.light .bg-white\/15 {
+  background-color: rgb(23 23 23 / 0.06);
+}
+
+.light .hover\:bg-white\/5:hover,
+.light .hover\:bg-white\/10:hover,
+.light .hover\:bg-white\/15:hover,
+.light .hover\:bg-white\/20:hover,
+.light .hover\:bg-white\/25:hover {
+  background-color: rgb(23 23 23 / 0.1);
+}
+
+.light .border-white\/10,
+.light .border-white\/15,
+.light .border-white\/20,
+.light .border-white\/25 {
+  border-color: rgb(23 23 23 / 0.14);
+}
+
+.light .text-white,
+.light .text-neutral-200,
+.light .hover\:text-white:hover {
+  color: #171717;
+}
+
+.light .text-black {
+  color: #ffffff;
+}
+
+.light .text-white\/90,
+.light .text-white\/80,
+.light .text-white\/75,
+.light .text-white\/70,
+.light .text-white\/65,
+.light .text-white\/60,
+.light .text-white\/55,
+.light .text-white\/50,
+.light .text-white\/40 {
+  color: rgb(23 23 23 / 0.68);
+}
+
+.light .placeholder\:text-white\/40::placeholder {
+  color: rgb(23 23 23 / 0.42);
+}
+
+.light .bg-black\/20,
+.light .bg-black\/30 {
+  background-color: rgb(255 255 255 / 0.38);
+}
+
+.light .from-black\/70 {
+  --tw-gradient-from: rgb(255 255 255 / 0.7) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.light .via-black\/20 {
+  --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), rgb(255 255 255 / 0.2) var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+.light .to-black {
+  --tw-gradient-to: #f7f6ef var(--tw-gradient-to-position);
 }
 
 .hero-title {

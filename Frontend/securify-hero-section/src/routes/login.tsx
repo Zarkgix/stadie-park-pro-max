@@ -66,8 +66,17 @@ function LoginPage() {
 
   return (
     <div className="relative min-h-screen w-full bg-black flex items-center justify-center px-6 pt-32 pb-12">
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
+        autoPlay
+        loop
+        muted
+        playsInline
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_063509_7d167302-4fd4-480b-8260-18ab572333d4.mp4"
+      />
+      <div className="absolute inset-0 bg-black/50" />
       <AppNavbar cta="home" ctaTo="/" />
-      <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur rounded-3xl p-8 border border-white/10">
+      <div className="relative z-10 w-full max-w-md bg-neutral-900/90 backdrop-blur rounded-3xl p-8 border border-white/10">
         <Link to="/" className="flex items-center gap-2 mb-8">
           <Logo />
           <span className="text-white text-sm tracking-tight">stadie-park</span>

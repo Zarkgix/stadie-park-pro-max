@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { apiUrl } from "@/lib/api";
 
@@ -21,6 +22,7 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userType, setUserType] = useState("");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
     const token = localStorage.getItem("stadie_park_token");
@@ -39,8 +41,26 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("stadie_park_theme");
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("stadie_park_theme", theme);
+  }, [theme]);
+
   const navLinks = isLoggedIn ? authNavLinks : [...publicNavLinks, { to: "/login", label: "log in" }];
   const initial = (userEmail.charAt(0) || "U").toUpperCase();
+  const isLight = theme === "light";
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-20 px-4 md:px-10 pt-6 flex items-center justify-between gap-3">
@@ -63,7 +83,8 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
         ))}
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden md:flex items-center gap-2">
+        <ThemeToggle isLight={isLight} onClick={toggleTheme} />
         {!isLoggedIn ? (
           <Link
             to="/register"
@@ -94,20 +115,23 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
         )}
       </div>
 
-      {/* Mobile toggle */}
-      <button
-        type="button"
-        aria-label="toggle menu"
-        onClick={() => setOpen((o) => !o)}
-        className="md:hidden bg-white/10 backdrop-blur border border-white/10 rounded-full h-11 w-11 flex items-center justify-center text-white"
-      >
-        <span className="sr-only">menu</span>
-        <div className="flex flex-col gap-1">
-          <span className="block h-px w-5 bg-white" />
-          <span className="block h-px w-5 bg-white" />
-          <span className="block h-px w-5 bg-white" />
-        </div>
-      </button>
+      <div className="md:hidden flex items-center gap-2">
+        <ThemeToggle isLight={isLight} onClick={toggleTheme} />
+        {/* Mobile toggle */}
+        <button
+          type="button"
+          aria-label="toggle menu"
+          onClick={() => setOpen((o) => !o)}
+          className="bg-white/10 backdrop-blur border border-white/10 rounded-full h-11 w-11 flex items-center justify-center text-white"
+        >
+          <span className="sr-only">menu</span>
+          <div className="flex flex-col gap-1">
+            <span className="block h-px w-5 bg-white" />
+            <span className="block h-px w-5 bg-white" />
+            <span className="block h-px w-5 bg-white" />
+          </div>
+        </button>
+      </div>
 
       {/* Mobile dropdown */}
       {open && (
@@ -161,5 +185,21 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
         </div>
       )}
     </nav>
+  );
+}
+
+function ThemeToggle({ isLight, onClick }: { isLight: boolean; onClick: () => void }) {
+  const Icon = isLight ? Moon : Sun;
+
+  return (
+    <button
+      type="button"
+      aria-label={isLight ? "switch to dark mode" : "switch to light mode"}
+      title={isLight ? "Dark mode" : "Light mode"}
+      onClick={onClick}
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+    >
+      <Icon size={18} strokeWidth={1.8} />
+    </button>
   );
 }

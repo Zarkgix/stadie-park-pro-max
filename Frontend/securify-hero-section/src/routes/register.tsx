@@ -1,11 +1,31 @@
 import { FormEvent, useState } from "react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
-import { Logo } from "@/components/brand/Logo";
 import { AppNavbar } from "@/components/layout/AppNavbar";
 import { apiUrl } from "@/lib/api";
 
 type UserType = "driver" | "admin" | "parking_marshal";
+
+const heroCards = [
+  {
+    title: "Swift entry",
+    subtitle: "Priority access for urgent vehicles",
+    src: "https://images.unsplash.com/photo-1509223197845-458d87318791?auto=format&fit=crop&w=1200&q=80",
+    srcHover: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    title: "Secure control",
+    subtitle: "Driver-focused registration flow",
+    src: "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80",
+    srcHover: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    title: "Smart parking",
+    subtitle: "Realtime priorities with style",
+    src: "https://images.unsplash.com/photo-1470506028280-3c56077beb19?auto=format&fit=crop&w=1200&q=80",
+    srcHover: "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
+  },
+];
 
 const userTypeOptions: { value: UserType; label: string }[] = [
   { value: "driver", label: "Driver" },
@@ -64,15 +84,52 @@ function RegisterPage() {
     }
   }
 
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
       <AppNavbar />
       <main className="container mx-auto px-6 py-12">
-        <div className="max-w-md mx-auto">
-          <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
-            <h1 className="text-2xl font-bold">Register</h1>
-            <p className="text-white/70">Create your account and register your vehicle</p>
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-10">
+            <div className="grid gap-5 sm:grid-cols-3 mb-8">
+              {heroCards.map((card, index) => {
+                const isHovered = hoveredCard === index;
+                return (
+                  <div
+                    key={card.title}
+                    className="relative overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl bg-black/20"
+                    style={{ perspective: 1100 }}
+                    onMouseEnter={() => setHoveredCard(index)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                  >
+                    <div
+                      className="relative h-52 transition-all duration-500"
+                      style={{
+                        transformStyle: "preserve-3d",
+                        transform: isHovered ? "rotateY(14deg) scale(1.04)" : "rotateY(0deg) scale(1)",
+                      }}
+                    >
+                      <img
+                        src={isHovered ? card.srcHover : card.src}
+                        alt={card.title}
+                        className="h-full w-full object-cover brightness-90 transition-all duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute left-4 bottom-4 z-10 text-left">
+                        <p className="text-sm uppercase tracking-[0.35em] text-white/60">{card.subtitle}</p>
+                        <h3 className="mt-2 text-lg font-semibold text-white">{card.title}</h3>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold tracking-tight">Register</h1>
+              <p className="mt-2 text-white/70">Create your account and register your vehicle with an immersive signup experience.</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

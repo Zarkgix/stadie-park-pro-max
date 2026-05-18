@@ -456,7 +456,6 @@ function DemoModePanel() {
   const [demoVehicles, setDemoVehicles] = useState<DemoVehicle[]>([]);
   const [demoZones, setDemoZones] = useState<DemoZone[]>(initialDemoZones);
   const [demoAlert, setDemoAlert] = useState("");
-  const [activeStep, setActiveStep] = useState(1);
   const [reportReady, setReportReady] = useState(false);
   const [log, setLog] = useState<string[]>(["Step 1: Monitoring dashboard opened. All demo zones are empty."]);
 
@@ -479,7 +478,6 @@ function DemoModePanel() {
       wait: 0,
     };
     setDemoVehicles((current) => sortQueue([...current, vehicle]));
-    setActiveStep(2);
     addLog("Step 2: General vehicle registered. Score = 1. It joins the back of the queue.");
   }
 
@@ -502,7 +500,6 @@ function DemoModePanel() {
         return zone;
       }),
     );
-    setActiveStep(vvipFull ? 5 : 3);
     addLog(vvipFull ? "Step 5: VVIP redirected to overflow. Score adjusts by -1." : "Step 3: VVIP registered. Score = 8. It jumps above General.");
   }
 
@@ -518,7 +515,6 @@ function DemoModePanel() {
     };
     setDemoAlert("Emergency vehicle detected. Priority override active.");
     setDemoVehicles((current) => sortQueue([...current, vehicle]));
-    setActiveStep(4);
     addLog("Step 4: Emergency registered. Score = 20. Alert fired and slot assignment started.");
     window.setTimeout(() => {
       setDemoZones((current) =>
@@ -535,7 +531,6 @@ function DemoModePanel() {
     setDemoZones((current) =>
       current.map((zone) => zone.kind === "vvip" ? { ...zone, occupied: Math.ceil(zone.capacity * 0.86) } : zone),
     );
-    setActiveStep(5);
     addLog("Step 5: VVIP zone filled to 86%. Next VVIP will redirect to overflow.");
   }
 
@@ -558,13 +553,11 @@ function DemoModePanel() {
       }
       return sortQueue(current.map((vehicle) => vehicle.id === existingGeneral.id ? { ...vehicle, score: 3, wait: 20, status: "aged 20 minutes" } : vehicle));
     });
-    setActiveStep(6);
     addLog("Step 6: General vehicle fast-forwarded 20 minutes. Ageing raises score to 3.0.");
   }
 
   function generateReport() {
     setReportReady(true);
-    setActiveStep(7);
     addLog("Step 7: Post-event report generated.");
   }
 
@@ -572,20 +565,9 @@ function DemoModePanel() {
     setDemoVehicles([]);
     setDemoZones(initialDemoZones);
     setDemoAlert("");
-    setActiveStep(1);
     setReportReady(false);
     setLog(["Step 1: Monitoring dashboard opened. All demo zones are empty."]);
   }
-
-  const steps = [
-    "Open monitoring dashboard. All zones empty. Logged in as Operations Manager.",
-    "Register General vehicle. Score = 1. It joins the queue.",
-    "Register VVIP vehicle. Score = 8. Queue reorders live.",
-    "Register Emergency vehicle. Score = 20. Alert fires and slot assigns.",
-    "Fill VVIP zone to 86%. Another VVIP redirects to overflow with -1 score adjustment.",
-    "Fast-forward General vehicle by 20 minutes. Score climbs to 3.0.",
-    "Generate post-event report with accuracy, utilisation, and waiting time.",
-  ];
 
   return (
     <section className="mb-8 rounded-2xl border border-cyan-300/20 bg-cyan-300/5 p-5">
@@ -614,17 +596,7 @@ function DemoModePanel() {
         <DemoButton label="Generate report" onClick={generateReport} />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr_0.9fr]">
-        <Panel title="demo steps">
-          <ol className="space-y-2 text-sm text-white/70">
-            {steps.map((step, index) => (
-              <li key={step} className={activeStep === index + 1 ? "rounded-lg bg-white/10 p-2 text-white" : "p-2"}>
-                Step {index + 1}: {step}
-              </li>
-            ))}
-          </ol>
-        </Panel>
-
+      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <Panel title="live queue scoring">
           {demoVehicles.length ? (
             <div className="space-y-2">
