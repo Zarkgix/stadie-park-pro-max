@@ -22,6 +22,7 @@ class VehicleUpdate(BaseModel):
     urgency: Optional[int]
     waiting_time: Optional[int]
     payment_status: Optional[str]
+    parking_slot_id: Optional[int]
 
 class VehicleResponse(VehicleBase):
     """Schema returned for vehicle data."""

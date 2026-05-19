@@ -13,6 +13,7 @@ __pycache__/
 # Node / frontend
 node_modules/
 dist/
+dist-render/
 dist-ssr/
 .output/
 .vinxi/

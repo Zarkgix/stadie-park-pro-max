@@ -1,7 +1,7 @@
 # User Management Guide
 
 ## Backend Running ✅
-Your backend is now running on **http://localhost:8000**
+Your backend is now running on **http://localhost:8001**
 
 ---
 

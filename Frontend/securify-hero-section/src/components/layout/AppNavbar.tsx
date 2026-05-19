@@ -17,7 +17,13 @@ const authNavLinks = [
   { to: "/about", label: "about" },
 ] as const;
 
-export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: string; ctaTo?: string }) {
+export function AppNavbar({
+  cta = "get started",
+  ctaTo = "/login",
+}: {
+  cta?: string;
+  ctaTo?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -26,19 +32,32 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
 
   useEffect(() => {
     const token = localStorage.getItem("stadie_park_token");
-    setIsLoggedIn(!!token);
-    if (!token) return;
+    if (!token) {
+      setIsLoggedIn(false);
+      return;
+    }
 
     fetch(apiUrl("/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {
+        if (!response.ok) {
+          localStorage.removeItem("stadie_park_token");
+          localStorage.removeItem("stadie_park_user_type");
+          setIsLoggedIn(false);
+          return null;
+        }
+        return response.json();
+      })
       .then((user) => {
         if (!user) return;
+        setIsLoggedIn(true);
         setUserEmail(user.email);
         setUserType(user.user_type);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setIsLoggedIn(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -54,7 +73,9 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
     localStorage.setItem("stadie_park_theme", theme);
   }, [theme]);
 
-  const navLinks = isLoggedIn ? authNavLinks : [...publicNavLinks, { to: "/login", label: "log in" }];
+  const navLinks = isLoggedIn
+    ? authNavLinks
+    : [...publicNavLinks, { to: "/login", label: "log in" }];
   const initial = (userEmail.charAt(0) || "U").toUpperCase();
   const isLight = theme === "light";
 
@@ -64,7 +85,10 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-20 px-4 md:px-10 pt-6 flex items-center justify-between gap-3">
-      <Link to="/" className="flex items-center gap-2 bg-white/10 backdrop-blur rounded-full pl-4 pr-5 py-3 border border-white/10">
+      <Link
+        to="/"
+        className="flex items-center gap-2 bg-white/10 backdrop-blur rounded-full pl-4 pr-5 py-3 border border-white/10"
+      >
         <Logo />
         <span className="text-white text-sm font-normal tracking-tight">stadie-park</span>
       </Link>
@@ -76,7 +100,9 @@ export function AppNavbar({ cta = "get started", ctaTo = "/login" }: { cta?: str
             to={l.to}
             className="text-neutral-200 hover:text-white transition-colors text-sm px-4 py-2 rounded-full"
             activeOptions={{ exact: l.to === "/" }}
-            activeProps={{ className: "text-white bg-white/15 transition-colors text-sm px-4 py-2 rounded-full" }}
+            activeProps={{
+              className: "text-white bg-white/15 transition-colors text-sm px-4 py-2 rounded-full",
+            }}
           >
             {l.label}
           </Link>

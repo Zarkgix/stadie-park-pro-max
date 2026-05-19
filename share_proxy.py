@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import http.client
 
 FRONTEND_HOST = "127.0.0.1"
-FRONTEND_PORT = 8080
+FRONTEND_PORT = 5173
 BACKEND_HOST = "127.0.0.1"
 BACKEND_PORT = 8001
 

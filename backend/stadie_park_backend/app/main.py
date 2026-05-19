@@ -1,15 +1,17 @@
 """Main FastAPI application entrypoint for Stadie-Park backend."""
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import inspect, text
 
+load_dotenv(override=True)
+
 from .database import engine, Base
 from .routers import ai, auth, vehicles, payments, queue
 # Import all models to register them with Base
 from .models import user, vehicle, payment, parking_slot
-
-load_dotenv()
 
 app = FastAPI(
     title="Stadie-Park Backend",
@@ -17,7 +19,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
-origins = [
+default_origins = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "http://localhost:5173",
@@ -29,11 +31,17 @@ origins = [
     "http://localhost:8082",
     "http://127.0.0.1:8082",
 ]
+configured_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+origins = [*default_origins, *configured_origins]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https://.*\.ngrok-free\.dev",
+    allow_origin_regex=r"https://.*\.(ngrok-free\.dev|onrender\.com)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,5 +82,5 @@ async def health_check():
     """Health check endpoint for quick monitoring."""
     return {"status": "ok", "service": "stadie-park-backend"}
 
-# Run the server locally with: uvicorn app.main:app --reload
+# Run the server locally with: uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 # API docs are available automatically at /docs and /redoc.

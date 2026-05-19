@@ -1,6 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   AlertTriangle,
   BarChart3,
   Bell,
@@ -51,6 +62,7 @@ type TabKey =
   | "communications"
   | "limited-users"
   | "users"
+  | "vehicles"
   | "zones"
   | "priority"
   | "reports"
@@ -74,6 +86,9 @@ type Vehicle = {
   status: string;
   priority_score: number;
   parking_slot_id: number | null;
+  waiting_time: number;
+  created_at?: string;
+  allocated_at?: string | null;
 };
 
 type TabDefinition = { key: TabKey; label: string; icon: typeof LayoutDashboard };
@@ -282,7 +297,10 @@ function DashboardPage() {
     await loadDashboard();
   }
 
-  async function updateUser(userId: number, changes: Partial<Pick<User, "email" | "user_type" | "is_active">>) {
+  async function updateUser(
+    userId: number,
+    changes: Partial<Pick<User, "email" | "user_type" | "is_active">>,
+  ) {
     if (!token) return;
     setError("");
     setMessage("");
@@ -304,11 +322,28 @@ function DashboardPage() {
     await postAction(apiUrl(`/auth/users/${userId}/deactivate`), "User account deactivated.");
   }
 
+  async function assignBestSlot(vehicleId: number) {
+    await postAction(
+      apiUrl(`/vehicles/${vehicleId}/assign-best-slot`),
+      "Vehicle assigned to the best available location.",
+    );
+  }
+
+  async function processVehicleExit(vehicleId: number) {
+    await postAction(
+      apiUrl(`/vehicles/${vehicleId}/process-exit`),
+      "Vehicle processed and slot released.",
+    );
+  }
+
   async function postAction(url: string, success: string) {
     if (!token) return;
     setError("");
     setMessage("");
-    const response = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       setError(body.detail || "Action failed.");
@@ -323,7 +358,10 @@ function DashboardPage() {
   const occupiedPct = Math.round(((totalCapacity - totalFree) / totalCapacity) * 100);
 
   return (
-    <PageShell title="operations dashboard" description="role-based account, parking, and operations controls">
+    <PageShell
+      title="operations dashboard"
+      description="role-based account, parking, and operations controls"
+    >
       {loading ? (
         <div className="text-white/70">Loading dashboard...</div>
       ) : currentUser ? (
@@ -352,8 +390,10 @@ function DashboardPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
-                    selected ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/15"
+                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white/60 ${
+                    selected
+                      ? "bg-white text-black shadow-lg shadow-white/10"
+                      : "bg-white/10 text-white hover:-translate-y-0.5 hover:bg-white/20 hover:text-white hover:shadow-lg hover:shadow-black/20"
                   }`}
                 >
                   <Icon size={16} />
@@ -363,8 +403,14 @@ function DashboardPage() {
             })}
           </div>
 
-          {message ? <p className="mb-4 rounded-lg bg-emerald-500/15 px-4 py-3 text-sm text-emerald-300">{message}</p> : null}
-          {error ? <p className="mb-4 rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-300">{error}</p> : null}
+          {message ? (
+            <p className="mb-4 rounded-lg bg-emerald-500/15 px-4 py-3 text-sm text-emerald-300">
+              {message}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="mb-4 rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-300">{error}</p>
+          ) : null}
 
           {activeTab === "overview" ? (
             <OverviewTab
@@ -372,6 +418,15 @@ function DashboardPage() {
               occupiedPct={occupiedPct}
               vehicleCount={visibleVehicles.length}
               totalFree={totalFree}
+              vehicles={visibleVehicles}
+            />
+          ) : null}
+
+          {activeTab === "overview" && isAdmin ? (
+            <AdminVehicleProcessingPanel
+              vehicles={allVehicles}
+              assignBestSlot={assignBestSlot}
+              processVehicleExit={processVehicleExit}
             />
           ) : null}
 
@@ -379,7 +434,9 @@ function DashboardPage() {
             <ProfileTab user={currentUser} vehicles={myVehicles} updateUser={updateUser} />
           ) : null}
 
-          {isDriver && activeTab === "vehicle-registration" ? <DriverVehicleTab vehicles={myVehicles} /> : null}
+          {isDriver && activeTab === "vehicle-registration" ? (
+            <DriverVehicleTab vehicles={myVehicles} />
+          ) : null}
           {isDriver && activeTab === "availability" ? <AvailabilityTab /> : null}
           {isDriver && activeTab === "payments" ? <DriverPaymentTab vehicles={myVehicles} /> : null}
           {isDriver && activeTab === "queue" ? <DriverQueueTab vehicles={myVehicles} /> : null}
@@ -388,7 +445,9 @@ function DashboardPage() {
           {isDriver && activeTab === "help" ? <HelpTab /> : null}
 
           {isMarshal && activeTab === "intake" ? <MarshalIntakeTab /> : null}
-          {isMarshal && activeTab === "marshal-payments" ? <MarshalPaymentTab vehicles={allVehicles} /> : null}
+          {isMarshal && activeTab === "marshal-payments" ? (
+            <MarshalPaymentTab vehicles={allVehicles} />
+          ) : null}
           {isMarshal && activeTab === "marshal-queue" ? <MarshalQueueTab /> : null}
           {isMarshal && activeTab === "slots" ? <SlotManagementTab /> : null}
           {isMarshal && activeTab === "monitoring" ? <MonitoringTab /> : null}
@@ -398,7 +457,14 @@ function DashboardPage() {
             <LimitedUsersTab users={allUsers} deactivateUser={deactivateUser} />
           ) : null}
 
-          {activeTab === "vehicles" && isAdmin ? <VehiclesTable vehicles={allVehicles} title="all registered vehicles" /> : null}
+          {activeTab === "vehicles" && isAdmin ? (
+            <VehiclesTable
+              vehicles={allVehicles}
+              title="all registered vehicles"
+              assignBestSlot={assignBestSlot}
+              processVehicleExit={processVehicleExit}
+            />
+          ) : null}
           {activeTab === "users" && isAdmin ? (
             <UsersTab
               users={allUsers}
@@ -418,12 +484,18 @@ function DashboardPage() {
           {activeTab === "zones" && isAdmin ? <AdminControlTab type="zones" /> : null}
           {activeTab === "priority" && isAdmin ? <AdminControlTab type="priority" /> : null}
           {activeTab === "payments" && isAdmin ? <AdminControlTab type="payments" /> : null}
-          {activeTab === "reports" && isAdmin ? <AdminControlTab type="reports" /> : null}
+          {activeTab === "reports" && isAdmin ? (
+            <AdminControlTab type="reports" vehicles={allVehicles} />
+          ) : null}
           {activeTab === "settings" && isAdmin ? <AdminControlTab type="settings" /> : null}
         </>
       ) : (
         <div className="rounded-2xl border border-white/10 bg-neutral-900/90 p-6 text-white/70">
-          No user data available. Please <Link to="/login" className="text-white underline">log in</Link>.
+          No user data available. Please{" "}
+          <Link to="/login" className="text-white underline">
+            log in
+          </Link>
+          .
         </div>
       )}
     </PageShell>
@@ -445,7 +517,10 @@ function ProfileHeader({ user, onLogout }: { user: User; onLogout: () => void })
           </p>
         </div>
       </div>
-      <button onClick={onLogout} className="rounded-full bg-white px-5 py-2 text-sm text-black hover:bg-neutral-200">
+      <button
+        onClick={onLogout}
+        className="rounded-full bg-white px-5 py-2 text-sm text-black hover:bg-neutral-200"
+      >
         Logout
       </button>
     </section>
@@ -457,7 +532,11 @@ function DemoModePanel() {
   const [demoZones, setDemoZones] = useState<DemoZone[]>(initialDemoZones);
   const [demoAlert, setDemoAlert] = useState("");
   const [reportReady, setReportReady] = useState(false);
-  const [log, setLog] = useState<string[]>(["Step 1: Monitoring dashboard opened. All demo zones are empty."]);
+  const [selectedGeneralId, setSelectedGeneralId] = useState<number | null>(null);
+  const [log, setLog] = useState<string[]>([
+    "Step 1: Monitoring dashboard opened. All demo zones are empty.",
+  ]);
+  const generalVehicles = demoVehicles.filter((vehicle) => vehicle.category === "General");
 
   function addLog(text: string) {
     setLog((current) => [text, ...current].slice(0, 8));
@@ -478,11 +557,14 @@ function DemoModePanel() {
       wait: 0,
     };
     setDemoVehicles((current) => sortQueue([...current, vehicle]));
+    setSelectedGeneralId(vehicle.id);
     addLog("Step 2: General vehicle registered. Score = 1. It joins the back of the queue.");
   }
 
   function registerVvip() {
-    const vvipFull = demoZones.find((zone) => zone.kind === "vvip" && zone.occupied / zone.capacity >= 0.86);
+    const vvipFull = demoZones.find(
+      (zone) => zone.kind === "vvip" && zone.occupied / zone.capacity >= 0.86,
+    );
     const vehicle: DemoVehicle = {
       id: Date.now(),
       plate: `VVIP-${demoVehicles.length + 1}`,
@@ -495,12 +577,17 @@ function DemoModePanel() {
     setDemoVehicles((current) => sortQueue([...current, vehicle]));
     setDemoZones((current) =>
       current.map((zone) => {
-        if (!vvipFull && zone.kind === "vvip") return { ...zone, occupied: Math.min(zone.capacity, zone.occupied + 1) };
+        if (!vvipFull && zone.kind === "vvip")
+          return { ...zone, occupied: Math.min(zone.capacity, zone.occupied + 1) };
         if (vvipFull && zone.kind === "overflow") return { ...zone, occupied: zone.occupied + 1 };
         return zone;
       }),
     );
-    addLog(vvipFull ? "Step 5: VVIP redirected to overflow. Score adjusts by -1." : "Step 3: VVIP registered. Score = 8. It jumps above General.");
+    addLog(
+      vvipFull
+        ? "Step 5: VVIP redirected to overflow. Score adjusts by -1."
+        : "Step 3: VVIP registered. Score = 8. It jumps above General.",
+    );
   }
 
   function registerAmbulance() {
@@ -518,10 +605,16 @@ function DemoModePanel() {
     addLog("Step 4: Emergency registered. Score = 20. Alert fired and slot assignment started.");
     window.setTimeout(() => {
       setDemoZones((current) =>
-        current.map((zone) => zone.kind === "emergency" ? { ...zone, occupied: Math.min(zone.capacity, zone.occupied + 1) } : zone),
+        current.map((zone) =>
+          zone.kind === "emergency"
+            ? { ...zone, occupied: Math.min(zone.capacity, zone.occupied + 1) }
+            : zone,
+        ),
       );
       setDemoVehicles((current) =>
-        current.map((item) => item.id === vehicle.id ? { ...item, status: "assigned in under 2 seconds" } : item),
+        current.map((item) =>
+          item.id === vehicle.id ? { ...item, status: "assigned in under 2 seconds" } : item,
+        ),
       );
       addLog("Emergency slot assigned in under 2 seconds. Zone update completed.");
     }, 1200);
@@ -529,36 +622,52 @@ function DemoModePanel() {
 
   function fillVvipZone() {
     setDemoZones((current) =>
-      current.map((zone) => zone.kind === "vvip" ? { ...zone, occupied: Math.ceil(zone.capacity * 0.86) } : zone),
+      current.map((zone) =>
+        zone.kind === "vvip" ? { ...zone, occupied: Math.ceil(zone.capacity * 0.86) } : zone,
+      ),
     );
     addLog("Step 5: VVIP zone filled to 86%. Next VVIP will redirect to overflow.");
   }
 
   function waitTwentyMinutes() {
+    if (!selectedGeneralId) {
+      addLog("Choose a General vehicle before applying the 20-minute ageing step.");
+      return;
+    }
+
+    const selectedVehicle = demoVehicles.find(
+      (vehicle) => vehicle.id === selectedGeneralId && vehicle.category === "General",
+    );
+    if (!selectedVehicle) {
+      addLog("Selected General vehicle is no longer available. Choose another General vehicle.");
+      return;
+    }
+
     setDemoVehicles((current) => {
-      const existingGeneral = current.find((vehicle) => vehicle.category === "General");
-      if (!existingGeneral) {
-        return sortQueue([
-          ...current,
-          {
-            id: Date.now(),
-            plate: "GEN-AGED",
-            category: "General",
-            score: 3,
-            zone: "General zone",
-            status: "aged 20 minutes",
-            wait: 20,
-          },
-        ]);
-      }
-      return sortQueue(current.map((vehicle) => vehicle.id === existingGeneral.id ? { ...vehicle, score: 3, wait: 20, status: "aged 20 minutes" } : vehicle));
+      return sortQueue(
+        current.map((vehicle) => {
+          if (vehicle.id !== selectedGeneralId) return vehicle;
+
+          const nextWait = vehicle.wait + 20;
+          return {
+            ...vehicle,
+            score: Number((1 + nextWait * 0.1).toFixed(1)),
+            wait: nextWait,
+            status: `aged ${nextWait} minutes`,
+          };
+        }),
+      );
     });
-    addLog("Step 6: General vehicle fast-forwarded 20 minutes. Ageing raises score to 3.0.");
+    addLog(
+      `Step 6: ${selectedVehicle.plate} gained another 20 minutes. Total waiting time is ${
+        selectedVehicle.wait + 20
+      } minutes.`,
+    );
   }
 
   function generateReport() {
     setReportReady(true);
-    addLog("Step 7: Post-event report generated.");
+    addLog("Post-event report generated.");
   }
 
   function resetDemo() {
@@ -566,6 +675,7 @@ function DemoModePanel() {
     setDemoZones(initialDemoZones);
     setDemoAlert("");
     setReportReady(false);
+    setSelectedGeneralId(null);
     setLog(["Step 1: Monitoring dashboard opened. All demo zones are empty."]);
   }
 
@@ -580,9 +690,16 @@ function DemoModePanel() {
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-medium text-white">Demo Mode control panel</h2>
-          <p className="text-sm text-white/60">Operations Manager simulator for priority scoring, alerts, redirects, ageing, and reports.</p>
+          <p className="text-sm text-white/60">
+            Operations Manager simulator for priority scoring, alerts, redirects, ageing, and
+            reports.
+          </p>
         </div>
-        <button type="button" onClick={resetDemo} className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 hover:bg-white/10">
+        <button
+          type="button"
+          onClick={resetDemo}
+          className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 hover:bg-white/10"
+        >
           Reset demo
         </button>
       </div>
@@ -592,7 +709,27 @@ function DemoModePanel() {
         <DemoButton label="VVIP arrives" onClick={registerVvip} />
         <DemoButton label="Ambulance arrives" onClick={registerAmbulance} danger />
         <DemoButton label="Fill VVIP zone to 86%" onClick={fillVvipZone} />
-        <DemoButton label="Wait 20 minutes" onClick={waitTwentyMinutes} />
+        <div className="rounded-xl border border-white/10 bg-white/5 p-2">
+          <select
+            value={selectedGeneralId ?? ""}
+            onChange={(event) =>
+              setSelectedGeneralId(event.target.value ? Number(event.target.value) : null)
+            }
+            className="mb-2 w-full rounded-lg border border-white/10 bg-neutral-950 px-2 py-2 text-xs text-white outline-none focus:border-white/40"
+          >
+            <option value="">Choose General</option>
+            {generalVehicles.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.id}>
+                {vehicle.plate} - waited {vehicle.wait} min
+              </option>
+            ))}
+          </select>
+          <DemoButton
+            label="Wait 20 minutes"
+            onClick={waitTwentyMinutes}
+            disabled={!selectedGeneralId}
+          />
+        </div>
         <DemoButton label="Generate report" onClick={generateReport} />
       </div>
 
@@ -601,20 +738,38 @@ function DemoModePanel() {
           {demoVehicles.length ? (
             <div className="space-y-2">
               {demoVehicles.map((vehicle, index) => (
-                <div key={vehicle.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg bg-white/5 p-3">
+                <div
+                  key={vehicle.id}
+                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg bg-white/5 p-3"
+                >
                   <span className="text-xs text-white/50">#{index + 1}</span>
                   <div>
-                    <p className="text-sm text-white">{vehicle.plate} - {vehicle.category}</p>
-                    <p className="text-xs text-white/55">{vehicle.zone} - {vehicle.status}{vehicle.wait ? ` - waited ${vehicle.wait} min` : ""}</p>
+                    <p className="text-sm text-white">
+                      {vehicle.plate} - {vehicle.category}
+                    </p>
+                    <p className="text-xs text-white/55">
+                      {vehicle.zone} - {vehicle.status}
+                      {vehicle.wait ? ` - waited ${vehicle.wait} min` : ""}
+                    </p>
                   </div>
-                  <span className={vehicle.score >= 20 ? "text-lg font-semibold text-red-300" : vehicle.score >= 8 ? "text-lg font-semibold text-cyan-200" : "text-lg font-semibold text-white"}>
+                  <span
+                    className={
+                      vehicle.score >= 20
+                        ? "text-lg font-semibold text-red-300"
+                        : vehicle.score >= 8
+                          ? "text-lg font-semibold text-cyan-200"
+                          : "text-lg font-semibold text-white"
+                    }
+                  >
                     {vehicle.score}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-white/60">No demo vehicles yet. Start with General vehicle arrives.</p>
+            <p className="text-sm text-white/60">
+              No demo vehicles yet. Start with General vehicle arrives.
+            </p>
           )}
         </Panel>
 
@@ -626,10 +781,29 @@ function DemoModePanel() {
                 <div key={zone.id} className="rounded-lg bg-white/5 p-3">
                   <div className="mb-2 flex justify-between text-sm">
                     <span className="text-white">{zone.name}</span>
-                    <span className={pct >= 86 ? "text-amber-300" : zone.kind === "emergency" && zone.occupied ? "text-red-300" : "text-white/60"}>{pct}%</span>
+                    <span
+                      className={
+                        pct >= 86
+                          ? "text-amber-300"
+                          : zone.kind === "emergency" && zone.occupied
+                            ? "text-red-300"
+                            : "text-white/60"
+                      }
+                    >
+                      {pct}%
+                    </span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                    <div className={pct >= 86 ? "h-full bg-amber-300" : zone.kind === "emergency" && zone.occupied ? "h-full bg-red-300" : "h-full bg-emerald-300"} style={{ width: `${pct}%` }} />
+                    <div
+                      className={
+                        pct >= 86
+                          ? "h-full bg-amber-300"
+                          : zone.kind === "emergency" && zone.occupied
+                            ? "h-full bg-red-300"
+                            : "h-full bg-emerald-300"
+                      }
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
                 </div>
               );
@@ -637,13 +811,12 @@ function DemoModePanel() {
           </div>
 
           {reportReady ? (
-            <div className="rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">
-              <p>Allocation accuracy: 98%</p>
-              <p>Slot utilisation rate: 71%</p>
-              <p>Avg wait: Emergency 0m, VVIP 2m, General 9m</p>
-            </div>
+            <DemoOperationalReport vehicles={demoVehicles} zones={demoZones} />
           ) : (
-            <SimpleRows rows={log} />
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/65">
+              Generate the operational report after cars have arrived, aged, redirected, or been
+              assigned. This panel no longer shows demo step logs.
+            </div>
           )}
         </Panel>
       </div>
@@ -651,12 +824,77 @@ function DemoModePanel() {
   );
 }
 
-function DemoButton({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
+function DemoOperationalReport({
+  vehicles,
+  zones,
+}: {
+  vehicles: DemoVehicle[];
+  zones: DemoZone[];
+}) {
+  const totalVehicles = vehicles.length;
+  const assignedVehicles = vehicles.filter((vehicle) =>
+    vehicle.status.toLowerCase().includes("assigned"),
+  ).length;
+  const emergencyVehicles = vehicles.filter((vehicle) => vehicle.category === "Emergency").length;
+  const redirectedVehicles = vehicles.filter((vehicle) =>
+    vehicle.status.toLowerCase().includes("redirected"),
+  ).length;
+  const totalCapacity = zones.reduce((sum, zone) => sum + zone.capacity, 0);
+  const occupied = zones.reduce((sum, zone) => sum + zone.occupied, 0);
+  const utilisation = totalCapacity ? Math.round((occupied / totalCapacity) * 100) : 0;
+  const avgWait = totalVehicles
+    ? Math.round(vehicles.reduce((sum, vehicle) => sum + vehicle.wait, 0) / totalVehicles)
+    : 0;
+  const queueAccuracy = totalVehicles
+    ? Math.round((vehicles.filter((vehicle) => vehicle.score > 0).length / totalVehicles) * 100)
+    : 100;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-4 text-sm text-emerald-50">
+      <div>
+        <p className="font-medium text-white">Operational report</p>
+        <p className="mt-1 text-emerald-100/80">
+          APS sorted {totalVehicles} vehicle(s), assigned {assignedVehicles}, handled{" "}
+          {emergencyVehicles} emergency case(s), and redirected {redirectedVehicles} overflow case(s).
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <InfoTile title="Queue accuracy" value={`${queueAccuracy}%`} note="vehicles scored by APS" />
+        <InfoTile title="Slot utilisation" value={`${utilisation}%`} note={`${occupied}/${totalCapacity} occupied`} />
+        <InfoTile title="Average wait" value={`${avgWait}m`} note="demo queue average" />
+        <InfoTile title="Priority incidents" value={`${emergencyVehicles}`} note="handled first" />
+      </div>
+      <div className="rounded-lg bg-black/20 p-3 text-xs leading-5 text-emerald-100/85">
+        <p>Finding: Emergency vehicles receive immediate top priority and use the emergency zone first.</p>
+        <p>Finding: VVIP vehicles use VVIP slots until the zone reaches the overflow threshold.</p>
+        <p>Finding: General vehicles gain score through repeated 20-minute ageing, reducing starvation.</p>
+        <p>Recommendation: Keep overflow slots open when VVIP utilisation passes 86%.</p>
+      </div>
+    </div>
+  );
+}
+
+function DemoButton({
+  label,
+  onClick,
+  danger = false,
+  disabled = false,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={danger ? "rounded-xl bg-red-400 px-3 py-3 text-sm text-black hover:bg-red-300" : "rounded-xl bg-white px-3 py-3 text-sm text-black hover:bg-neutral-200"}
+      disabled={disabled}
+      className={
+        danger
+          ? "rounded-xl bg-red-400 px-3 py-3 text-sm text-black hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+          : "rounded-xl bg-white px-3 py-3 text-sm text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-50"
+      }
     >
       {label}
     </button>
@@ -668,11 +906,13 @@ function OverviewTab({
   occupiedPct,
   vehicleCount,
   totalFree,
+  vehicles,
 }: {
   role: UserType;
   occupiedPct: number;
   vehicleCount: number;
   totalFree: number;
+  vehicles: Vehicle[];
 }) {
   const label = role === "driver" ? "my vehicles" : "vehicles visible";
   return (
@@ -683,8 +923,131 @@ function OverviewTab({
         <StatBlock value={`${totalFree}`} label="spaces free" divider="right" />
         <StatBlock value={`${queueRows.length}`} label="queue length" divider="right" />
       </div>
+      {role === "admin" ? <AdminEfficiencyPanel vehicles={vehicles} /> : null}
       <AvailabilityTab compact />
     </>
+  );
+}
+
+function vehicleIsProcessed(vehicle: Vehicle) {
+  const status = vehicle.status.toLowerCase();
+  return (
+    status !== "waiting" ||
+    Boolean(vehicle.parking_slot_id) ||
+    Boolean(vehicle.allocated_at) ||
+    ["assigned", "parked", "completed", "released", "exited"].some((value) =>
+      status.includes(value),
+    )
+  );
+}
+
+function buildEfficiencyData(vehicles: Vehicle[]) {
+  const sortedVehicles = [...vehicles].sort((a, b) => {
+    const left = a.created_at ? new Date(a.created_at).getTime() : a.id;
+    const right = b.created_at ? new Date(b.created_at).getTime() : b.id;
+    return left - right;
+  });
+
+  if (!sortedVehicles.length) {
+    return [
+      { label: "Start", arrivals: 0, processed: 0, waiting: 0, efficiency: 0 },
+      { label: "Now", arrivals: 0, processed: 0, waiting: 0, efficiency: 0 },
+    ];
+  }
+
+  const bucketCount = Math.min(6, sortedVehicles.length);
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const end = Math.ceil(((index + 1) / bucketCount) * sortedVehicles.length);
+    const bucketVehicles = sortedVehicles.slice(0, end);
+    const processed = bucketVehicles.filter(vehicleIsProcessed).length;
+    const arrivals = bucketVehicles.length;
+    return {
+      label: `T${index + 1}`,
+      arrivals,
+      processed,
+      waiting: arrivals - processed,
+      efficiency: arrivals ? Math.round((processed / arrivals) * 100) : 0,
+    };
+  });
+}
+
+function AdminEfficiencyPanel({ vehicles }: { vehicles: Vehicle[] }) {
+  const data = buildEfficiencyData(vehicles);
+  const total = vehicles.length;
+  const processed = vehicles.filter(vehicleIsProcessed).length;
+  const waiting = Math.max(total - processed, 0);
+  const paid = vehicles.filter((vehicle) => vehicle.payment_status.toLowerCase() === "paid").length;
+  const efficiency = total ? Math.round((processed / total) * 100) : 0;
+  const avgWaitSeconds = vehicles.length
+    ? Math.round(
+        vehicles.reduce((sum, vehicle) => sum + (Number(vehicle.waiting_time) || 0), 0) /
+          vehicles.length,
+      )
+    : 0;
+  const avgWaitMinutes = Math.round(avgWaitSeconds / 60);
+
+  return (
+    <Panel title="system efficiency as cars come in and out">
+      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+        <InfoTile title="Efficiency" value={`${efficiency}%`} note="processed vs arrivals" />
+        <InfoTile title="Processed" value={`${processed}`} note="assigned, parked, or exited" />
+        <InfoTile title="Waiting" value={`${waiting}`} note="still in queue" />
+        <InfoTile title="Avg wait" value={`${avgWaitMinutes}m`} note={`${paid} paid vehicle(s)`} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="h-72 rounded-lg border border-white/10 bg-black/20 p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="label" stroke="rgba(255,255,255,0.45)" tickLine={false} />
+              <YAxis stroke="rgba(255,255,255,0.45)" tickLine={false} />
+              <Tooltip
+                contentStyle={{
+                  background: "#111",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 8,
+                  color: "#fff",
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="arrivals"
+                name="Cars in"
+                stroke="#67e8f9"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="processed"
+                name="Cars out/assigned"
+                stroke="#86efac"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="h-72 rounded-lg border border-white/10 bg-black/20 p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="label" stroke="rgba(255,255,255,0.45)" tickLine={false} />
+              <YAxis stroke="rgba(255,255,255,0.45)" tickLine={false} />
+              <Tooltip
+                contentStyle={{
+                  background: "#111",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 8,
+                  color: "#fff",
+                }}
+              />
+              <Bar dataKey="efficiency" name="Efficiency %" fill="#facc15" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </Panel>
   );
 }
 
@@ -695,7 +1058,10 @@ function ProfileTab({
 }: {
   user: User;
   vehicles: Vehicle[];
-  updateUser: (userId: number, changes: Partial<Pick<User, "email" | "user_type" | "is_active">>) => void;
+  updateUser: (
+    userId: number,
+    changes: Partial<Pick<User, "email" | "user_type" | "is_active">>,
+  ) => void;
 }) {
   const [email, setEmail] = useState(user.email);
   return (
@@ -707,7 +1073,9 @@ function ProfileTab({
         <div>
           <p className="text-white">{user.email}</p>
           <p className="text-sm text-white/70">{roleLabel(user.user_type)}</p>
-          <p className="text-sm text-white/60">{vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} linked</p>
+          <p className="text-sm text-white/60">
+            {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} linked
+          </p>
         </div>
       </div>
       <form
@@ -724,7 +1092,10 @@ function ProfileTab({
           className="min-w-0 rounded-lg border border-white/10 bg-neutral-950 px-4 py-3 text-sm text-white"
           required
         />
-        <button type="submit" className="rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+        <button
+          type="submit"
+          className="rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200"
+        >
           Save profile
         </button>
       </form>
@@ -739,16 +1110,24 @@ function DriverVehicleTab({ vehicles }: { vehicles: Vehicle[] }) {
         <div className="space-y-3">
           <input className="field" placeholder="Plate number" />
           <select className="field" defaultValue="">
-            <option value="" disabled>Vehicle type</option>
-            {categories.map((category) => <option key={category.name}>{category.name}</option>)}
+            <option value="" disabled>
+              Vehicle type
+            </option>
+            {categories.map((category) => (
+              <option key={category.name}>{category.name}</option>
+            ))}
           </select>
           <select className="field" defaultValue="">
-            <option value="" disabled>Intended gate or entrance</option>
+            <option value="" disabled>
+              Intended gate or entrance
+            </option>
             <option>Gate 1 - North</option>
             <option>Gate 2 - VIP</option>
             <option>Gate 3 - East</option>
           </select>
-          <button className="rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Register vehicle</button>
+          <button className="rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+            Register vehicle
+          </button>
         </div>
       </Panel>
       <VehiclesTable vehicles={vehicles} title="my vehicles" />
@@ -757,20 +1136,62 @@ function DriverVehicleTab({ vehicles }: { vehicles: Vehicle[] }) {
 }
 
 function AvailabilityTab({ compact = false }: { compact?: boolean }) {
+  const [selectedZoneId, setSelectedZoneId] = useState(zones[0]?.id ?? "");
+  const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
+
   return (
     <Panel title={compact ? "availability lookup" : "availability lookup by zone"}>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {zones.map((zone) => (
-          <div key={zone.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm text-white">{zone.name}</p>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/70">{zone.state}</span>
-            </div>
-            <p className="text-2xl font-medium text-white">{zone.free} free</p>
-            <p className="text-xs text-white/60">Estimated wait {zone.wait}</p>
-          </div>
-        ))}
+        {zones.map((zone) => {
+          const selected = selectedZoneId === zone.id;
+          const occupied = zone.capacity - zone.free;
+          const occupiedPct = Math.round((occupied / zone.capacity) * 100);
+
+          return (
+            <button
+              key={zone.id}
+              type="button"
+              onClick={() => setSelectedZoneId(zone.id)}
+              className={`group rounded-lg border p-4 text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white/60 ${
+                selected
+                  ? "border-white/40 bg-white/15 shadow-lg shadow-black/30"
+                  : "border-white/10 bg-white/5 hover:-translate-y-1 hover:border-white/25 hover:bg-white/10 hover:shadow-xl hover:shadow-black/30"
+              }`}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm text-white">{zone.name}</p>
+                <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/70 transition-colors group-hover:bg-white/20 group-hover:text-white">
+                  {zone.state}
+                </span>
+              </div>
+              <p className="text-2xl font-medium text-white">{zone.free} free</p>
+              <p className="text-xs text-white/60">Estimated wait {zone.wait}</p>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-emerald-300 transition-all"
+                  style={{ width: `${100 - occupiedPct}%` }}
+                />
+              </div>
+            </button>
+          );
+        })}
       </div>
+      {selectedZone ? (
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white">{selectedZone.name} selected</p>
+              <p className="mt-1 text-xs text-white/60">
+                {selectedZone.free} of {selectedZone.capacity} slots free. Estimated wait{" "}
+                {selectedZone.wait}.
+              </p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs text-black">
+              {selectedZone.state}
+            </span>
+          </div>
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -784,8 +1205,12 @@ function DriverPaymentTab({ vehicles }: { vehicles: Vehicle[] }) {
           <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-white text-black">
             <CreditCard size={32} />
           </div>
-          <p className="text-sm text-white/70">Exempt categories such as Emergency can proceed without payment.</p>
-          <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Pay now</button>
+          <p className="text-sm text-white/70">
+            Exempt categories such as Emergency can proceed without payment.
+          </p>
+          <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+            Pay now
+          </button>
         </div>
       </div>
     </Panel>
@@ -811,12 +1236,20 @@ function NavigationTab() {
       <div className="grid gap-4 lg:grid-cols-[1fr_0.7fr]">
         <div className="grid grid-cols-8 gap-2 rounded-2xl border border-white/10 bg-white/5 p-5">
           {Array.from({ length: 64 }, (_, index) => (
-            <div key={index} className={`aspect-square rounded ${index === 18 ? "bg-emerald-300" : index % 5 === 0 ? "bg-white/30" : "bg-white/10"}`} />
+            <div
+              key={index}
+              className={`aspect-square rounded ${index === 18 ? "bg-emerald-300" : index % 5 === 0 ? "bg-white/30" : "bg-white/10"}`}
+            />
           ))}
         </div>
         <div>
-          <p className="text-sm text-white/70">Assigned slot F-19. Follow Gate 3, turn left after the east stand, then proceed to overflow lane F.</p>
-          <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Mark arrived</button>
+          <p className="text-sm text-white/70">
+            Assigned slot F-19. Follow Gate 3, turn left after the east stand, then proceed to
+            overflow lane F.
+          </p>
+          <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+            Mark arrived
+          </button>
         </div>
       </div>
     </Panel>
@@ -826,7 +1259,12 @@ function NavigationTab() {
 function HistoryTab() {
   return (
     <Panel title="history and receipts">
-      <SimpleRows rows={["KCA 123A - Private - Paid 100 - Receipt #SP-1021", "KBZ 411V - VIP - Paid 300 - Receipt #SP-0988"]} />
+      <SimpleRows
+        rows={[
+          "KCA 123A - Private - Paid 100 - Receipt #SP-1021",
+          "KBZ 411V - VIP - Paid 300 - Receipt #SP-0988",
+        ]}
+      />
     </Panel>
   );
 }
@@ -834,9 +1272,17 @@ function HistoryTab() {
 function HelpTab() {
   return (
     <Panel title="help and feedback">
-      <p className="mb-4 text-sm text-white/70">Use the floating assistant at the bottom-right to ask questions like where to enter, payment status, or assigned slot directions.</p>
-      <textarea className="field min-h-28" placeholder="Share feedback about your parking experience" />
-      <button className="mt-3 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Send feedback</button>
+      <p className="mb-4 text-sm text-white/70">
+        Use the floating assistant at the bottom-right to ask questions like where to enter, payment
+        status, or assigned slot directions.
+      </p>
+      <textarea
+        className="field min-h-28"
+        placeholder="Share feedback about your parking experience"
+      />
+      <button className="mt-3 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+        Send feedback
+      </button>
     </Panel>
   );
 }
@@ -846,11 +1292,27 @@ function MarshalIntakeTab() {
     <Panel title="vehicle intake and registration">
       <div className="grid gap-3 sm:grid-cols-2">
         <input className="field" placeholder="Scan QR/NFC token or enter plate" />
-        <select className="field" defaultValue=""><option value="" disabled>Category</option><option>Emergency</option><option>VIP</option><option>Private</option></select>
+        <select className="field" defaultValue="">
+          <option value="" disabled>
+            Category
+          </option>
+          <option>Emergency</option>
+          <option>VIP</option>
+          <option>Private</option>
+        </select>
         <input className="field" placeholder="Driver contact" />
-        <select className="field" defaultValue=""><option value="" disabled>Gate</option><option>Gate 1</option><option>Gate 2</option><option>Gate 3</option></select>
+        <select className="field" defaultValue="">
+          <option value="" disabled>
+            Gate
+          </option>
+          <option>Gate 1</option>
+          <option>Gate 2</option>
+          <option>Gate 3</option>
+        </select>
       </div>
-      <button className="mt-4 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Verify and add to queue</button>
+      <button className="mt-4 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+        Verify and add to queue
+      </button>
     </Panel>
   );
 }
@@ -864,12 +1326,21 @@ function MarshalQueueTab() {
     <Panel title="priority queue management">
       <div className="space-y-2">
         {queueRows.map((row) => (
-          <div key={row.plate} className="flex items-center justify-between rounded-lg bg-white/5 p-3">
+          <div
+            key={row.plate}
+            className="flex items-center justify-between rounded-lg bg-white/5 p-3"
+          >
             <div>
-              <p className="text-sm text-white">{row.position}. {row.plate}</p>
-              <p className="text-xs text-white/60">Score {row.score} - {row.status}</p>
+              <p className="text-sm text-white">
+                {row.position}. {row.plate}
+              </p>
+              <p className="text-xs text-white/60">
+                Score {row.score} - {row.status}
+              </p>
             </div>
-            <button className="rounded-full bg-white/10 px-3 py-2 text-xs text-white hover:bg-white/15">Move up</button>
+            <button className="rounded-full bg-white/10 px-3 py-2 text-xs text-white hover:bg-white/15">
+              Move up
+            </button>
           </div>
         ))}
       </div>
@@ -882,7 +1353,10 @@ function SlotManagementTab() {
     <Panel title="slot assignment and release">
       <div className="grid grid-cols-8 gap-2">
         {Array.from({ length: 48 }, (_, index) => (
-          <button key={index} className={`aspect-square rounded ${index % 9 === 0 ? "bg-red-400/50" : index % 4 === 0 ? "bg-white" : "bg-white/10"}`} />
+          <button
+            key={index}
+            className={`aspect-square rounded ${index % 9 === 0 ? "bg-red-400/50" : index % 4 === 0 ? "bg-white" : "bg-white/10"}`}
+          />
         ))}
       </div>
     </Panel>
@@ -898,7 +1372,9 @@ function MonitoringTab() {
         <InfoTile title="Avg wait" value="8m" note="current shift" />
         <InfoTile title="Occupied" value="68%" note="all zones" />
       </div>
-      <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Pull shift report</button>
+      <button className="mt-5 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+        Pull shift report
+      </button>
     </Panel>
   );
 }
@@ -906,8 +1382,15 @@ function MonitoringTab() {
 function IncidentsTab() {
   return (
     <Panel title="incident handling">
-      <SimpleRows rows={incidents.map((incident) => `${incident.time} - ${incident.plate} - ${incident.type} - ${incident.status}`)} />
-      <button className="mt-4 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">Record incident</button>
+      <SimpleRows
+        rows={incidents.map(
+          (incident) =>
+            `${incident.time} - ${incident.plate} - ${incident.type} - ${incident.status}`,
+        )}
+      />
+      <button className="mt-4 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+        Record incident
+      </button>
     </Panel>
   );
 }
@@ -915,7 +1398,10 @@ function IncidentsTab() {
 function CommunicationsTab() {
   return (
     <Panel title="communications and notifications">
-      <textarea className="field min-h-28" placeholder="Broadcast to queue, e.g. Gate 2 is full, redirect to Gate 3" />
+      <textarea
+        className="field min-h-28"
+        placeholder="Broadcast to queue, e.g. Gate 2 is full, redirect to Gate 3"
+      />
       <button className="mt-3 flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
         <Megaphone size={16} />
         Broadcast message
@@ -924,18 +1410,37 @@ function CommunicationsTab() {
   );
 }
 
-function LimitedUsersTab({ users, deactivateUser }: { users: User[]; deactivateUser: (userId: number) => void }) {
+function LimitedUsersTab({
+  users,
+  deactivateUser,
+}: {
+  users: User[];
+  deactivateUser: (userId: number) => void;
+}) {
   return (
     <Panel title="limited driver access management">
-      <p className="mb-4 text-sm text-white/60">Marshals can temporarily disable driver access for breaches and notify admins for final action.</p>
+      <p className="mb-4 text-sm text-white/60">
+        Marshals can temporarily disable driver access for breaches and notify admins for final
+        action.
+      </p>
       <div className="space-y-2">
         {users.map((user) => (
-          <div key={user.id} className="flex items-center justify-between rounded-lg bg-white/5 p-3">
+          <div
+            key={user.id}
+            className="flex items-center justify-between rounded-lg bg-white/5 p-3"
+          >
             <div>
               <p className="text-sm text-white">{user.email}</p>
-              <p className="text-xs text-white/60">{user.is_active ? "Active driver" : "Disabled driver"}</p>
+              <p className="text-xs text-white/60">
+                {user.is_active ? "Active driver" : "Disabled driver"}
+              </p>
             </div>
-            <button onClick={() => deactivateUser(user.id)} className="rounded-full bg-red-500/15 px-3 py-2 text-xs text-red-300 hover:bg-red-500/25">Disable</button>
+            <button
+              onClick={() => deactivateUser(user.id)}
+              className="rounded-full bg-red-500/15 px-3 py-2 text-xs text-red-300 hover:bg-red-500/25"
+            >
+              Disable
+            </button>
           </div>
         ))}
       </div>
@@ -943,19 +1448,123 @@ function LimitedUsersTab({ users, deactivateUser }: { users: User[]; deactivateU
   );
 }
 
-function VehiclesTable({ vehicles, title }: { vehicles: Vehicle[]; title: string }) {
+function preferredLocation(category: string) {
+  const normalized = category.trim().toLowerCase();
+  if (normalized.includes("emergency") || normalized.includes("ambulance")) return "Emergency zone";
+  if (normalized.includes("vvip")) return "VVIP zone";
+  if (normalized.includes("vip")) return "VIP zone";
+  if (normalized.includes("bus") || normalized.includes("public")) return "Bus/Public transport zone";
+  return "General zone";
+}
+
+function AdminVehicleProcessingPanel({
+  vehicles,
+  assignBestSlot,
+  processVehicleExit,
+}: {
+  vehicles: Vehicle[];
+  assignBestSlot: (vehicleId: number) => void;
+  processVehicleExit: (vehicleId: number) => void;
+}) {
+  const sortedWaiting = [...vehicles]
+    .filter((vehicle) => vehicle.status.toLowerCase() === "waiting")
+    .sort((a, b) => b.priority_score - a.priority_score || a.id - b.id);
+  const activeAssigned = vehicles.filter((vehicle) =>
+    ["assigned", "parked"].includes(vehicle.status.toLowerCase()),
+  );
+
+  return (
+    <div className="mb-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <Panel title="assign cars to the right location">
+        {sortedWaiting.length ? (
+          <div className="space-y-2">
+            {sortedWaiting.slice(0, 6).map((vehicle, index) => (
+              <div
+                key={vehicle.id}
+                className="grid gap-3 rounded-lg bg-white/5 p-3 md:grid-cols-[auto_1fr_auto]"
+              >
+                <span className="text-xs text-white/50">#{index + 1}</span>
+                <div>
+                  <p className="text-sm text-white">{vehicle.plate_number}</p>
+                  <p className="text-xs text-white/60">
+                    {vehicle.category} - score {vehicle.priority_score} - send to{" "}
+                    {preferredLocation(vehicle.category)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => assignBestSlot(vehicle.id)}
+                  className="rounded-full bg-white px-4 py-2 text-xs text-black hover:bg-neutral-200"
+                >
+                  Assign
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-white/60">No waiting vehicles need assignment.</p>
+        )}
+      </Panel>
+
+      <Panel title="process cars out">
+        {activeAssigned.length ? (
+          <div className="space-y-2">
+            {activeAssigned.slice(0, 6).map((vehicle) => (
+              <div
+                key={vehicle.id}
+                className="flex flex-col gap-3 rounded-lg bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm text-white">{vehicle.plate_number}</p>
+                  <p className="text-xs text-white/60">
+                    Slot #{vehicle.parking_slot_id ?? "assigned"} - {vehicle.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => processVehicleExit(vehicle.id)}
+                  className="rounded-full bg-emerald-300 px-4 py-2 text-xs text-black hover:bg-emerald-200"
+                >
+                  Mark exited
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-white/60">Assigned vehicles will appear here for exit processing.</p>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function VehiclesTable({
+  vehicles,
+  title,
+  assignBestSlot,
+  processVehicleExit,
+}: {
+  vehicles: Vehicle[];
+  title: string;
+  assignBestSlot?: (vehicleId: number) => void;
+  processVehicleExit?: (vehicleId: number) => void;
+}) {
+  const hasActions = Boolean(assignBestSlot || processVehicleExit);
   return (
     <Panel title={title}>
       {vehicles.length ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="text-xs lowercase text-white/50">
               <tr className="border-b border-white/10">
                 <th className="px-4 py-3 text-left font-normal">plate</th>
                 <th className="px-4 py-3 text-left font-normal">category</th>
+                <th className="px-4 py-3 text-left font-normal">right location</th>
                 <th className="px-4 py-3 text-left font-normal">status</th>
+                <th className="px-4 py-3 text-left font-normal">slot</th>
                 <th className="px-4 py-3 text-left font-normal">payment</th>
                 <th className="px-4 py-3 text-left font-normal">urgency</th>
+                {hasActions ? <th className="px-4 py-3 text-left font-normal">process</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -963,9 +1572,37 @@ function VehiclesTable({ vehicles, title }: { vehicles: Vehicle[]; title: string
                 <tr key={vehicle.id} className="border-b border-white/5 last:border-0">
                   <td className="px-4 py-3 text-white">{vehicle.plate_number}</td>
                   <td className="px-4 py-3 text-white/70">{vehicle.category}</td>
+                  <td className="px-4 py-3 text-white/70">{preferredLocation(vehicle.category)}</td>
                   <td className="px-4 py-3 text-white/70">{vehicle.status}</td>
+                  <td className="px-4 py-3 text-white/70">
+                    {vehicle.parking_slot_id ? `#${vehicle.parking_slot_id}` : "-"}
+                  </td>
                   <td className="px-4 py-3 text-white/70">{vehicle.payment_status}</td>
                   <td className="px-4 py-3 text-white/70">{vehicle.urgency}</td>
+                  {hasActions ? (
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {assignBestSlot && vehicle.status.toLowerCase() !== "exited" ? (
+                          <button
+                            type="button"
+                            onClick={() => assignBestSlot(vehicle.id)}
+                            className="rounded-full bg-white px-3 py-1.5 text-xs text-black hover:bg-neutral-200"
+                          >
+                            Assign
+                          </button>
+                        ) : null}
+                        {processVehicleExit && vehicle.status.toLowerCase() !== "exited" ? (
+                          <button
+                            type="button"
+                            onClick={() => processVehicleExit(vehicle.id)}
+                            className="rounded-full bg-emerald-300 px-3 py-1.5 text-xs text-black hover:bg-emerald-200"
+                          >
+                            Exit
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -989,20 +1626,46 @@ function UsersTab(props: {
   setStaffType: (value: "admin" | "parking_marshal") => void;
   createStaff: (event: FormEvent<HTMLFormElement>) => void;
   approveUser: (userId: number) => void;
-  updateUser: (userId: number, changes: Partial<Pick<User, "email" | "user_type" | "is_active">>) => void;
+  updateUser: (
+    userId: number,
+    changes: Partial<Pick<User, "email" | "user_type" | "is_active">>,
+  ) => void;
   deactivateUser: (userId: number) => void;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <Panel title="create admin or marshal">
         <form onSubmit={props.createStaff} className="space-y-4">
-          <select value={props.staffType} onChange={(event) => props.setStaffType(event.target.value as "admin" | "parking_marshal")} className="field">
+          <select
+            value={props.staffType}
+            onChange={(event) =>
+              props.setStaffType(event.target.value as "admin" | "parking_marshal")
+            }
+            className="field"
+          >
             <option value="parking_marshal">Parking Marshal</option>
             <option value="admin">Admin</option>
           </select>
-          <input type="email" value={props.staffEmail} onChange={(event) => props.setStaffEmail(event.target.value)} placeholder="staff@email.com" className="field" required />
-          <input type="password" value={props.staffPassword} onChange={(event) => props.setStaffPassword(event.target.value)} placeholder="Password" className="field" required />
-          <button type="submit" className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200">
+          <input
+            type="email"
+            value={props.staffEmail}
+            onChange={(event) => props.setStaffEmail(event.target.value)}
+            placeholder="staff@email.com"
+            className="field"
+            required
+          />
+          <input
+            type="password"
+            value={props.staffPassword}
+            onChange={(event) => props.setStaffPassword(event.target.value)}
+            placeholder="Password"
+            className="field"
+            required
+          />
+          <button
+            type="submit"
+            className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm text-black hover:bg-neutral-200"
+          >
             <Plus size={16} />
             Create and approve
           </button>
@@ -1015,12 +1678,19 @@ function UsersTab(props: {
             <h3 className="mb-3 text-sm font-medium text-amber-200">Pending approval</h3>
             <div className="space-y-2">
               {props.pendingUsers.map((user) => (
-                <div key={user.id} className="flex flex-col gap-3 rounded-lg bg-black/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={user.id}
+                  className="flex flex-col gap-3 rounded-lg bg-black/20 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div>
                     <p className="text-sm text-white">{user.email}</p>
                     <p className="text-xs text-white/60">{roleLabel(user.user_type)}</p>
                   </div>
-                  <button type="button" onClick={() => props.approveUser(user.id)} className="flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-black hover:bg-neutral-200">
+                  <button
+                    type="button"
+                    onClick={() => props.approveUser(user.id)}
+                    className="flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-black hover:bg-neutral-200"
+                  >
                     <CheckCircle2 size={16} />
                     Approve
                   </button>
@@ -1032,29 +1702,47 @@ function UsersTab(props: {
 
         <div className="space-y-2">
           {props.users.map((user) => (
-            <div key={user.id} className="flex flex-col gap-3 rounded-lg bg-white/5 p-3 lg:flex-row lg:items-center lg:justify-between">
+            <div
+              key={user.id}
+              className="flex flex-col gap-3 rounded-lg bg-white/5 p-3 lg:flex-row lg:items-center lg:justify-between"
+            >
               <div>
                 <input
                   type="email"
                   defaultValue={user.email}
                   onBlur={(event) => {
                     const nextEmail = event.currentTarget.value.trim();
-                    if (nextEmail && nextEmail !== user.email) props.updateUser(user.id, { email: nextEmail });
+                    if (nextEmail && nextEmail !== user.email)
+                      props.updateUser(user.id, { email: nextEmail });
                   }}
                   className="w-full min-w-[220px] rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm text-white"
                 />
                 <p className="text-xs text-white/60">{roleLabel(user.user_type)}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <select value={user.user_type} onChange={(event) => props.updateUser(user.id, { user_type: event.target.value as UserType })} className="rounded-full border border-white/10 bg-neutral-950 px-3 py-2 text-xs text-white">
+                <select
+                  value={user.user_type}
+                  onChange={(event) =>
+                    props.updateUser(user.id, { user_type: event.target.value as UserType })
+                  }
+                  className="rounded-full border border-white/10 bg-neutral-950 px-3 py-2 text-xs text-white"
+                >
                   <option value="driver">Driver</option>
                   <option value="parking_marshal">Parking Marshal</option>
                   <option value="admin">Admin</option>
                 </select>
-                <button type="button" onClick={() => props.updateUser(user.id, { is_active: !user.is_active })} className={`rounded-full px-3 py-2 text-xs ${user.is_active ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
+                <button
+                  type="button"
+                  onClick={() => props.updateUser(user.id, { is_active: !user.is_active })}
+                  className={`rounded-full px-3 py-2 text-xs ${user.is_active ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}
+                >
                   {user.is_active ? "Approved" : "Pending"}
                 </button>
-                <button type="button" onClick={() => props.deactivateUser(user.id)} className="rounded-full bg-red-500/15 px-3 py-2 text-xs text-red-300 hover:bg-red-500/25">
+                <button
+                  type="button"
+                  onClick={() => props.deactivateUser(user.id)}
+                  className="rounded-full bg-red-500/15 px-3 py-2 text-xs text-red-300 hover:bg-red-500/25"
+                >
                   Deactivate
                 </button>
               </div>
@@ -1066,11 +1754,18 @@ function UsersTab(props: {
   );
 }
 
-function AdminControlTab({ type }: { type: "zones" | "priority" | "payments" | "reports" | "settings" }) {
+function AdminControlTab({
+  type,
+  vehicles = [],
+}: {
+  type: "zones" | "priority" | "payments" | "reports" | "settings";
+  vehicles?: Vehicle[];
+}) {
   const content = {
     zones: {
       title: "parking zone management",
-      summary: "Create, edit, retire parking zones, set capacities, and configure VIP or emergency zones.",
+      summary:
+        "Create, edit, retire parking zones, set capacities, and configure VIP or emergency zones.",
       rows: ["Create zone", "Edit capacity", "Retire zone", "Mark VIP or emergency"],
     },
     priority: {
@@ -1081,7 +1776,9 @@ function AdminControlTab({ type }: { type: "zones" | "priority" | "payments" | "
     payments: {
       title: "payment and fee configuration",
       summary: "Configure providers, parking fees, discounts, exemptions, and refund policy.",
-      rows: categories.map((category) => `${category.name} fee ${category.exempt ? "exempt" : category.fee}`),
+      rows: categories.map(
+        (category) => `${category.name} fee ${category.exempt ? "exempt" : category.fee}`,
+      ),
     },
     reports: {
       title: "analytics and reporting",
@@ -1090,22 +1787,29 @@ function AdminControlTab({ type }: { type: "zones" | "priority" | "payments" | "
     },
     settings: {
       title: "system settings and maintenance",
-      summary: "Control maintenance mode, holidays, notifications, LLM assistant integration, and backups.",
+      summary:
+        "Control maintenance mode, holidays, notifications, LLM assistant integration, and backups.",
       rows: ["Maintenance mode", "System holidays", "Notifications", "Backups"],
     },
   }[type];
   return (
-    <Panel title={content.title}>
-      <p className="mb-5 text-sm leading-6 text-white/65">{content.summary}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {content.rows.map((row) => (
-          <button key={row} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-4 text-left text-sm text-white hover:bg-white/10">
-            <span>{row}</span>
-            <ShieldCheck size={16} />
-          </button>
-        ))}
-      </div>
-    </Panel>
+    <div className="space-y-6">
+      {type === "reports" ? <AdminEfficiencyPanel vehicles={vehicles} /> : null}
+      <Panel title={content.title}>
+        <p className="mb-5 text-sm leading-6 text-white/65">{content.summary}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {content.rows.map((row) => (
+            <button
+              key={row}
+              className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-4 text-left text-sm text-white hover:bg-white/10"
+            >
+              <span>{row}</span>
+              <ShieldCheck size={16} />
+            </button>
+          ))}
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -1123,7 +1827,9 @@ function SimpleRows({ rows }: { rows: string[] }) {
   return (
     <div className="space-y-2">
       {rows.map((row) => (
-        <div key={row} className="rounded-lg bg-white/5 p-3 text-sm text-white/80">{row}</div>
+        <div key={row} className="rounded-lg bg-white/5 p-3 text-sm text-white/80">
+          {row}
+        </div>
       ))}
     </div>
   );

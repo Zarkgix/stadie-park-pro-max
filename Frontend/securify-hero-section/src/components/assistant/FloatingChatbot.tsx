@@ -15,7 +15,7 @@ export function FloatingChatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      text: "Hi, I am your Stadie-Park assistant. Ask me about parking, vehicles, payments, approvals, or dashboard controls.",
+      text: "Hello, welcome to Stadie-Park support. Ask me where to go in the app, how to use the dashboard, or how to register a vehicle, pay, check the queue, and find your slot.",
     },
   ]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -29,6 +29,7 @@ export function FloatingChatbot() {
     const text = input.trim();
     if (!text || loading) return;
 
+    const history = messages.slice(-8);
     setMessages((current) => [...current, { role: "user", text }]);
     setInput("");
 
@@ -36,7 +37,10 @@ export function FloatingChatbot() {
     if (!token) {
       setMessages((current) => [
         ...current,
-        { role: "assistant", text: "Please log in first so I can help with your Stadie-Park account." },
+        {
+          role: "assistant",
+          text: "Please log in first so I can help with your Stadie-Park account.",
+        },
       ]);
       return;
     }
@@ -49,13 +53,23 @@ export function FloatingChatbot() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history }),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("stadie_park_token");
+          localStorage.removeItem("stadie_park_user_type");
+        }
         setMessages((current) => [
           ...current,
-          { role: "assistant", text: "Please log in again before chatting with me." },
+          {
+            role: "assistant",
+            text:
+              response.status === 401
+                ? "Your session expired after the backend refreshed. Please log in again, then I can guide you around the app."
+                : "Please log in again before chatting with me.",
+          },
         ]);
         return;
       }
@@ -65,7 +79,10 @@ export function FloatingChatbot() {
     } catch {
       setMessages((current) => [
         ...current,
-        { role: "assistant", text: "I cannot reach the assistant service right now. Make sure the backend is running." },
+        {
+          role: "assistant",
+          text: "I cannot reach the assistant service right now. Make sure the backend is running.",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -82,8 +99,8 @@ export function FloatingChatbot() {
                 <MessageCircle size={18} />
               </div>
               <div>
-                <h2 className="text-sm font-medium text-white">Stadie assistant</h2>
-                <p className="text-xs text-white/50">parking support</p>
+                <h2 className="text-sm font-medium text-white">App guide</h2>
+                <p className="text-xs text-white/50">Navigation support</p>
               </div>
             </div>
             <button
@@ -98,7 +115,10 @@ export function FloatingChatbot() {
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
+              <div
+                key={`${message.role}-${index}`}
+                className={message.role === "user" ? "flex justify-end" : "flex justify-start"}
+              >
                 <div
                   className={
                     message.role === "user"
@@ -109,7 +129,11 @@ export function FloatingChatbot() {
                   {message.text}
                   {message.text.includes("log in first") ? (
                     <div className="mt-3">
-                      <Link to="/login" onClick={() => setOpen(false)} className="text-xs font-medium text-white underline underline-offset-4">
+                      <Link
+                        to="/login"
+                        onClick={() => setOpen(false)}
+                        className="text-xs font-medium text-white underline underline-offset-4"
+                      >
                         Go to login
                       </Link>
                     </div>
@@ -121,11 +145,14 @@ export function FloatingChatbot() {
             <div ref={bottomRef} />
           </div>
 
-          <form onSubmit={sendMessage} className="flex gap-2 border-t border-white/10 bg-neutral-900 p-3">
+          <form
+            onSubmit={sendMessage}
+            className="flex gap-2 border-t border-white/10 bg-neutral-900 p-3"
+          >
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask anything..."
+              placeholder="Ask where to go..."
               className="min-w-0 flex-1 rounded-full border border-white/10 bg-neutral-800 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
             />
             <button

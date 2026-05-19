@@ -4,7 +4,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { apiUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/ai-support")({
-  head: () => ({ meta: [{ title: "ai support - stadie-park" }] }),
+  head: () => ({ meta: [{ title: "customer care - stadie-park" }] }),
   component: AiSupportPage,
 });
 
@@ -14,7 +14,7 @@ function AiSupportPage() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      text: "Hi, I am your local Stadie-Park assistant. Ask me about queue priorities, payments, parking, or what your account can do.",
+      text: "Hello, welcome to Stadie-Park support. I can guide you around the app, explain dashboard sections, and show where to register vehicles, pay, check the queue, or find your slot.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -24,6 +24,7 @@ function AiSupportPage() {
     const text = input.trim();
     if (!text || loading) return;
 
+    const history = messages.slice(-8);
     setMessages((m) => [...m, { role: "user", text }]);
     setInput("");
 
@@ -31,7 +32,10 @@ function AiSupportPage() {
     if (!token) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: "Please log in first so I can answer using your Stadie-Park role and account data." },
+        {
+          role: "assistant",
+          text: "Please log in first so I can answer using your Stadie-Park role and account data.",
+        },
       ]);
       return;
     }
@@ -44,13 +48,23 @@ function AiSupportPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history }),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("stadie_park_token");
+          localStorage.removeItem("stadie_park_user_type");
+        }
         setMessages((m) => [
           ...m,
-          { role: "assistant", text: "Please log in again before using AI support." },
+          {
+            role: "assistant",
+            text:
+              response.status === 401
+                ? "Your session expired after the backend refreshed. Please log in again, then AI support will work normally."
+                : "Please log in again before using AI support.",
+          },
         ]);
         return;
       }
@@ -60,7 +74,10 @@ function AiSupportPage() {
     } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: "I cannot reach the assistant service right now. Make sure the backend and Ollama are running." },
+        {
+          role: "assistant",
+          text: "I cannot reach the assistant service right now. Make sure the backend and Ollama are running.",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -68,7 +85,7 @@ function AiSupportPage() {
   };
 
   return (
-    <PageShell title="ai support" description="local llm assistant - privacy-first explanations">
+    <PageShell title="app guide" description="Navigation support for Stadie-Park">
       <div className="bg-neutral-900/90 backdrop-blur rounded-3xl border border-white/10 flex flex-col h-[60vh]">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((m, i) => (
@@ -91,7 +108,7 @@ function AiSupportPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="ask anything..."
+            placeholder="ask where to go or how to use a screen"
             className="flex-1 bg-neutral-800 border border-white/10 rounded-full px-5 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40"
           />
           <button
